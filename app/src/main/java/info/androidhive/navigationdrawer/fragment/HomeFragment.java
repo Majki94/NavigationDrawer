@@ -1,14 +1,23 @@
 package info.androidhive.navigationdrawer.fragment;
 
 import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 
 import info.androidhive.navigationdrawer.R;
+
+import static android.content.Context.SENSOR_SERVICE;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -18,17 +27,28 @@ import info.androidhive.navigationdrawer.R;
  * Use the {@link HomeFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class HomeFragment extends Fragment {
+public class HomeFragment extends Fragment implements SensorEventListener {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
+
+    private static final String TAG = HomeFragment.class.getSimpleName();
+
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+    private static final int DEFAULT_SPEED = 5;
+    private static final double DEFAULT_TOLERANCE = 0.1;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
+    private ImageView spaceship;
+    private boolean pressed;
+
 
     private OnFragmentInteractionListener mListener;
+    private SensorManager manager;
+    public Sensor rotation_vector;
+    double savedAngle;
 
     public HomeFragment() {
         // Required empty public constructor
@@ -65,7 +85,74 @@ public class HomeFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_home, container, false);
+        View view = inflater.inflate(R.layout.fragment_home, container, false);
+        spaceship = (ImageView) view.findViewById(R.id.spaceship);
+        manager = (SensorManager) getActivity().getSystemService(SENSOR_SERVICE);
+        rotation_vector = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        manager.registerListener(this, rotation_vector, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    public void onPause() {
+        manager.unregisterListener(this);
+        super.onPause();
+    }
+
+    private void move(final int speed) {
+        final Handler handler = new Handler();
+        final Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                spaceship.setX(spaceship.getX() + speed);
+                spaceship.invalidate();
+                if (pressed) {
+                    handler.postDelayed(this, 1);
+                } else {
+                    handler.removeCallbacks(this);
+                }
+            }
+        };
+        if (pressed) {
+            handler.postDelayed(runnable, 1);
+        } else {
+            handler.removeCallbacks(runnable);
+        }
+    }
+
+    private void moveLeft(final int speed) {
+        move(-speed);
+    }
+
+    private void moveRight(final int speed) {
+        move(speed);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        float aX, aY;
+        pressed = false;
+        aX = event.values[0];
+        aY = event.values[1];
+        if (aY < -DEFAULT_TOLERANCE) {
+            pressed = true;
+            moveLeft(DEFAULT_SPEED);
+            Log.e(TAG, "onSensorChanged: moving left");
+        } else if (aY > DEFAULT_TOLERANCE) {
+            pressed = true;
+            moveRight(DEFAULT_SPEED);
+            Log.e(TAG, "onSensorChanged: moving right");
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
     }
 
     // TODO: Rename method, update argument and hook method into UI event
