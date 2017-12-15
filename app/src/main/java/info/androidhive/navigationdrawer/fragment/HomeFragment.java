@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.Fragment;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,20 +36,22 @@ public class HomeFragment extends Fragment implements SensorEventListener {
 
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
-    private static final int DEFAULT_SPEED = 5;
-    private static final double DEFAULT_TOLERANCE = 0.1;
+    private static final int DEFAULT_SPEED = 1;
+    private static final double DEFAULT_TOLERANCE = 5;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
     private ImageView spaceship;
-    private boolean pressed;
+    private boolean leftPressed;
+    private boolean rightPressed;
 
 
     private OnFragmentInteractionListener mListener;
     private SensorManager manager;
-    public Sensor rotation_vector;
-    double savedAngle;
+    public Sensor rotationVector;
+    private int screenWidth;
+    private int screenHeight;
 
     public HomeFragment() {
         // Required empty public constructor
@@ -88,14 +91,20 @@ public class HomeFragment extends Fragment implements SensorEventListener {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
         spaceship = (ImageView) view.findViewById(R.id.spaceship);
         manager = (SensorManager) getActivity().getSystemService(SENSOR_SERVICE);
-        rotation_vector = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        rotationVector = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+
+        DisplayMetrics displaymetrics = new DisplayMetrics();
+        getActivity().getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
+        screenHeight = displaymetrics.heightPixels;
+        screenWidth = displaymetrics.widthPixels;
+
         return view;
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        manager.registerListener(this, rotation_vector, SensorManager.SENSOR_DELAY_NORMAL);
+        manager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     @Override
@@ -104,21 +113,30 @@ public class HomeFragment extends Fragment implements SensorEventListener {
         super.onPause();
     }
 
+    private boolean wouldSpaceshipBeInWindow(int speed){
+        float value = spaceship.getX() + speed;
+        return !((value < 0) || value + spaceship.getWidth() > screenWidth);
+    }
+
     private void move(final int speed) {
         final Handler handler = new Handler();
         final Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                spaceship.setX(spaceship.getX() + speed);
+                if (wouldSpaceshipBeInWindow(speed)) {
+                    spaceship.setX(spaceship.getX() + speed);
+                } else {
+                    handler.removeCallbacks(this);
+                }
                 spaceship.invalidate();
-                if (pressed) {
+                if (leftPressed || rightPressed) {
                     handler.postDelayed(this, 1);
                 } else {
                     handler.removeCallbacks(this);
                 }
             }
         };
-        if (pressed) {
+        if (leftPressed || rightPressed) {
             handler.postDelayed(runnable, 1);
         } else {
             handler.removeCallbacks(runnable);
@@ -135,16 +153,20 @@ public class HomeFragment extends Fragment implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        float aX, aY;
-        pressed = false;
+        float aX, aY, aZ;
+        leftPressed = false;
+        rightPressed = false;
         aX = event.values[0];
         aY = event.values[1];
-        if (aY < -DEFAULT_TOLERANCE) {
-            pressed = true;
+        aZ = event.values[2];
+        double angle = Math.toDegrees(aY);
+        Log.e(TAG, "onSensorChanged: angle : " + angle);
+        if (angle < -DEFAULT_TOLERANCE) {
+            leftPressed = true;
             moveLeft(DEFAULT_SPEED);
             Log.e(TAG, "onSensorChanged: moving left");
-        } else if (aY > DEFAULT_TOLERANCE) {
-            pressed = true;
+        } else if (angle > DEFAULT_TOLERANCE) {
+            rightPressed = true;
             moveRight(DEFAULT_SPEED);
             Log.e(TAG, "onSensorChanged: moving right");
         }
@@ -171,6 +193,7 @@ public class HomeFragment extends Fragment implements SensorEventListener {
 //            throw new RuntimeException(context.toString()
 //                    + " must implement OnFragmentInteractionListener");
 //        }
+
     }
 
     @Override
