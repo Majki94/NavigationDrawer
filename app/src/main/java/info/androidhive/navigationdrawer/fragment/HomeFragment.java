@@ -7,7 +7,6 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -104,7 +103,7 @@ public class HomeFragment extends Fragment implements SensorEventListener {
     @Override
     public void onResume() {
         super.onResume();
-        manager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_NORMAL);
+        manager.registerListener(this, rotationVector, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     @Override
@@ -113,42 +112,15 @@ public class HomeFragment extends Fragment implements SensorEventListener {
         super.onPause();
     }
 
-    private boolean wouldSpaceshipBeInWindow(int speed){
+    private boolean wouldSpaceshipBeInWindow(int speed) {
         float value = spaceship.getX() + speed;
         return !((value < 0) || value + spaceship.getWidth() > screenWidth);
     }
 
-    private void move(final int speed) {
-        final Handler handler = new Handler();
-        final Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (wouldSpaceshipBeInWindow(speed)) {
-                    spaceship.setX(spaceship.getX() + speed);
-                } else {
-                    handler.removeCallbacks(this);
-                }
-                spaceship.invalidate();
-                if (leftPressed || rightPressed) {
-                    handler.postDelayed(this, 1);
-                } else {
-                    handler.removeCallbacks(this);
-                }
-            }
-        };
-        if (leftPressed || rightPressed) {
-            handler.postDelayed(runnable, 1);
-        } else {
-            handler.removeCallbacks(runnable);
-        }
-    }
-
-    private void moveLeft(final int speed) {
-        move(-speed);
-    }
-
-    private void moveRight(final int speed) {
-        move(speed);
+    //set center of spaceship to provided positions
+    public void moveSpaceship(int positionX, int positionY) {
+        int posX = positionX - spaceship.getWidth() / 2;
+        spaceship.setX(posX);
     }
 
     @Override
@@ -160,16 +132,12 @@ public class HomeFragment extends Fragment implements SensorEventListener {
         aY = event.values[1];
         aZ = event.values[2];
         double angle = Math.toDegrees(aY);
-        Log.e(TAG, "onSensorChanged: angle : " + angle);
-        if (angle < -DEFAULT_TOLERANCE) {
-            leftPressed = true;
-            moveLeft(DEFAULT_SPEED);
-            Log.e(TAG, "onSensorChanged: moving left");
-        } else if (angle > DEFAULT_TOLERANCE) {
-            rightPressed = true;
-            moveRight(DEFAULT_SPEED);
-            Log.e(TAG, "onSensorChanged: moving right");
-        }
+        int posX = 0;
+        double anglePercentage = angle / 45;
+        posX = (int) ((screenWidth / 2) + (screenWidth / 2) * anglePercentage);
+        Log.e(TAG, "onSensorChanged: angle :" + angle + ", anglePercentage :" + anglePercentage);
+        moveSpaceship(posX, (int) spaceship.getY());
+
     }
 
     @Override
